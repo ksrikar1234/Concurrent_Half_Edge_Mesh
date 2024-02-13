@@ -51,27 +51,32 @@ struct HalfEdge {
 
 struct HalfEdgeFace 
 {
+  
+  HalfEdge* face_head_edge;
+  HalfEdge* face_tail_edge;
+  HalfEdge* curr_head;
 
-  HalfEdgeFace()
+  HalfEdgeFace(HalfEdge* & head_edge, HalfEdge* & tail_edge)
   {
-    face_head_edge = new HalfEdge();
+    face_head_edge = head_edge;
+    face_tail_edge = tail_edge;
+    curr_head = head_edge;
   }
   
-  HalfEdgeFace(HalfEdge* edge)
+  ~HalfEdgeFace()
   {
     delete[] face_head_edge;
   }
-  
-  HalfEdge* face_head_edge;
+
   
   void add_next_edge(HalfEdge* & edge)
-  { get_edges().back()->nextEdge = edge; }
+  { curr_head = edge; curr_head->nextEdge = face_tail_edge; }
   
   void add_prev_edge(HalfEdge* & edge)
-  { get_edges().back()->prevEdge = edge; }
+  { curr_head = edge; curr_head->prevEdge = face_tail_edge;}
 
   void add_twin_edge(HalfEdge* & edge)
-  { get_edges().back()->twinEdge = edge; }
+  { curr_head->twinEdge = edge; }
 
   void add_vertex(Vertex* & vertex)
   { get_edges().back()->vertex = vertex; }
