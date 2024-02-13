@@ -39,12 +39,14 @@ struct HalfEdge {
       nextEdge = nullptr;
       prevEdge = nullptr;
       vertex   = nullptr;
+      allocator_idx = 0;
     }
 
     HalfEdge* twinEdge;
     HalfEdge* nextEdge;
     HalfEdge* prevEdge;
     Vertex*   vertex;
+    uint32_t  allocator_idx;
     // Add more fields as needed
 };
 
@@ -151,11 +153,12 @@ public:
         // Get a hazard pointer
         HazardPointer<HalfEdge>& hp = getHazardPointer();
 
-        HalfEdge* hazardPtr = nullptr;
+        HalfEdge* ptr = nullptr;
         while (true) {
-            HalfEdge* ptr = nullptr;
             if (!hp.write_lock.test_and_set()) {
                 ptr = hp.ptr.load();
+                ptr->allocator_idx = freeIndices.back();
+                freeIndices.pop_back();
                 hp.write_lock.clear();
             }
 
@@ -167,17 +170,32 @@ public:
             } else {
                 if (freeIndices.empty()) {
                     // If memory pool is exhausted, allocate a new vector
-                    memoryPool.emplace_back(MAX_HALF_EDGES_PER_BLOCK);
+                    memoryPool.push_back(std::vector<HalfEdge>());
+                    memoryPool.back().resize(MAX_HALF_EDGES_PER_BLOCK);
+                    freeIndices.resize(MAX_HALF_EDGES_PER_BLOCK);
                     for (int i = 0; i < MAX_HALF_EDGES_PER_BLOCK; ++i) {
                         freeIndices.push_back(i + (memoryPool.size() - 1) * MAX_HALF_EDGES_PER_BLOCK);
                     }
                 }
+
                 int index = freeIndices.back();
+                
                 freeIndices.pop_back();
+                
                 int vectorIndex = index / MAX_HALF_EDGES_PER_BLOCK;
                 int elementIndex = index % MAX_HALF_EDGES_PER_BLOCK;
-                ptr = &memoryPool[vectorIndex][elementIndex];
+                
+                if(vectorIndex > memoryPool.size())
+                {
+                   memoryPool.resize(MAX_HALF_EDGES_PER_BLOCK);
+                }
+                if(elementIndex > memoryPool[vectorIndex].size())
+                {
+                   memoryPool[vectorIndex].resize(MAX_HALF_EDGES_PER_BLOCK);
+                }
 
+                ptr = &memoryPool[vectorIndex][elementIndex];
+                ptr->allocator_idx = index;
                 // Set hazard pointer
                 hp.ptr.store(ptr);
                 hp.write_lock.clear();
@@ -188,7 +206,9 @@ public:
     }
 
     // Deallocate a previously allocated half-edge
-    void deallocate(HalfEdge* edge) {
+    void deallocate(HalfEdge* edge) 
+    {
+         freeIndices.push_back(edge->allocator_idx);
         // No need to deallocate in hazard pointer model
     }
 
