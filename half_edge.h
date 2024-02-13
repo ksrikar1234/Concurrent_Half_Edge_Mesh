@@ -6,7 +6,7 @@
 #include <thread>
 #include <memory>
 
-#define MAX_HALF_EDGES 1000
+#define MAX_HALF_EDGES_PER_BLOCK 1000
 
 // Define your vertex structure
 struct Vertex {
@@ -106,8 +106,8 @@ private:
 public:
     HalfEdgeAllocator() {
         // Initialize freeIndices with all indices
-        freeIndices.reserve(MAX_HALF_EDGES);
-        for (int i = 0; i < MAX_HALF_EDGES; ++i) {
+        freeIndices.reserve(MAX_HALF_EDGES_PER_BLOCK);
+        for (int i = 0; i < MAX_HALF_EDGES_PER_BLOCK; ++i) {
             freeIndices.push_back(i);
         }
 
@@ -143,15 +143,15 @@ public:
             } else {
                 if (freeIndices.empty()) {
                     // If memory pool is exhausted, allocate a new vector
-                    memoryPool.emplace_back(MAX_HALF_EDGES);
-                    for (int i = 0; i < MAX_HALF_EDGES; ++i) {
-                        freeIndices.push_back(i + (memoryPool.size() - 1) * MAX_HALF_EDGES);
+                    memoryPool.emplace_back(MAX_HALF_EDGES_PER_BLOCK);
+                    for (int i = 0; i < MAX_HALF_EDGES_PER_BLOCK; ++i) {
+                        freeIndices.push_back(i + (memoryPool.size() - 1) * MAX_HALF_EDGES_PER_BLOCK);
                     }
                 }
                 int index = freeIndices.back();
                 freeIndices.pop_back();
-                int vectorIndex = index / MAX_HALF_EDGES;
-                int elementIndex = index % MAX_HALF_EDGES;
+                int vectorIndex = index / MAX_HALF_EDGES_PER_BLOCK;
+                int elementIndex = index % MAX_HALF_EDGES_PER_BLOCK;
                 ptr = &memoryPool[vectorIndex][elementIndex];
 
                 // Set hazard pointer
