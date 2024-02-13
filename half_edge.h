@@ -8,6 +8,17 @@
 
 #define MAX_HALF_EDGES_PER_BLOCK 1000
 
+class ThreadUtil {
+public:
+    // Get the ID of the main thread
+    static std::thread::id getMainThreadId() {
+        static const std::thread::id mainId = std::this_thread::get_id();
+        return mainId;
+    }
+};
+
+
+
 // Define your vertex structure
 struct Vertex {
     double x, y, z;
