@@ -43,7 +43,50 @@ struct HalfEdge {
 
 struct HalfEdgeFace 
 {
-  std::deque<HalfEdge*> edges;
+  HalfEdge* face_head_edge;
+  
+  void add_next_edge(HalfEdge* & edge)
+  { face_head_edge->nextEdge = edge; }
+  
+  void add_prev_edge(HalfEdge* & edge)
+  { face_head_edge->prevEdge = edge; }
+
+  void add_twin_edge(HalfEdge* & edge)
+  { face_head_edge->twinEdge = edge; }
+
+  void add_vertex(Vertex* & vertex)
+  { face_head_edge->vertex = vertex; }
+ 
+  HalfEdge* get_next_edge()
+  { return face_head_edge->nextEdge; }
+
+  HalfEdge* get_prev_edge()
+  { return face_head_edge->prevEdge; }
+
+  std::vector<HalfEdge*> get_edges()
+  {
+    std::vector<HalfEdge*> edges;
+    HalfEdge* edge = face_head_edge;
+    do
+    {
+      edges.push_back(edge);
+      edge = edge->nextEdge;
+    } while (edge != face_head_edge);
+    return edges;
+  }
+
+  std::vector<Vertex*> get_vertices()
+  {
+    std::vector<Vertex*> vertices;
+    HalfEdge* edge = face_head_edge;
+    do
+    {
+      vertices.push_back(edge->vertex);
+      edge = edge->nextEdge;
+    } while (edge != face_head_edge);
+    return vertices;
+  }
+
 };
 
 
@@ -51,7 +94,7 @@ struct HalfEdgeFace
 template<typename T>
 struct HazardPointer {
     std::atomic<T*> ptr;
-    std::atomic_flag locked = ATOMIC_FLAG_INIT;
+    std::atomic_flag write_lock = ATOMIC_FLAG_INIT;
 };
 
 class HalfEdgeAllocator {
@@ -87,9 +130,9 @@ public:
         HalfEdge* hazardPtr = nullptr;
         while (true) {
             HalfEdge* ptr = nullptr;
-            if (!hp.locked.test_and_set()) {
+            if (!hp.write_lock.test_and_set()) {
                 ptr = hp.ptr.load();
-                hp.locked.clear();
+                hp.write_lock.clear();
             }
 
             if (ptr) {
@@ -113,7 +156,7 @@ public:
 
                 // Set hazard pointer
                 hp.ptr.store(ptr);
-                hp.locked.clear();
+                hp.write_lock.clear();
 
                 return ptr;
             }
