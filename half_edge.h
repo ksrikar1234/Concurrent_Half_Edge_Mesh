@@ -33,6 +33,14 @@ struct Vertex {
 
 // Define your half-edge structure
 struct HalfEdge {
+    HalfEdge() 
+    {
+      twinEdge = nullptr;
+      nextEdge = nullptr;
+      prevEdge = nullptr;
+      vertex = nullptr;
+    }
+
     HalfEdge* twinEdge;
     HalfEdge* nextEdge;
     HalfEdge* prevEdge;
@@ -43,25 +51,36 @@ struct HalfEdge {
 
 struct HalfEdgeFace 
 {
+
+  HalfEdgeFace()
+  {
+    face_head_edge = new HalfEdge();
+  }
+  
+  HalfEdgeFace(HalfEdge* edge)
+  {
+    delete[] face_head_edge;
+  }
+  
   HalfEdge* face_head_edge;
   
   void add_next_edge(HalfEdge* & edge)
-  { face_head_edge->nextEdge = edge; }
+  { get_edges().back()->nextEdge = edge; }
   
   void add_prev_edge(HalfEdge* & edge)
-  { face_head_edge->prevEdge = edge; }
+  { get_edges().back()->prevEdge = edge; }
 
   void add_twin_edge(HalfEdge* & edge)
-  { face_head_edge->twinEdge = edge; }
+  { get_edges().back()->twinEdge = edge; }
 
   void add_vertex(Vertex* & vertex)
-  { face_head_edge->vertex = vertex; }
+  { get_edges().back()->vertex = vertex; }
  
   HalfEdge* get_next_edge()
-  { return face_head_edge->nextEdge; }
+  { return get_edges().back()->nextEdge; }
 
   HalfEdge* get_prev_edge()
-  { return face_head_edge->prevEdge; }
+  { return get_edges().back()->prevEdge; }
 
   std::vector<HalfEdge*> get_edges()
   {
@@ -106,7 +125,7 @@ private:
 public:
     HalfEdgeAllocator() {
         // Initialize freeIndices with all indices
-        freeIndices.reserve(MAX_HALF_EDGES_PER_BLOCK);
+        freeIndices.resize(MAX_HALF_EDGES_PER_BLOCK);
         for (int i = 0; i < MAX_HALF_EDGES_PER_BLOCK; ++i) {
             freeIndices.push_back(i);
         }
