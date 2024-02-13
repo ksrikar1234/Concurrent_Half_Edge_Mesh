@@ -38,7 +38,7 @@ struct HalfEdge {
       twinEdge = nullptr;
       nextEdge = nullptr;
       prevEdge = nullptr;
-      vertex = nullptr;
+      vertex   = nullptr;
     }
 
     HalfEdge* twinEdge;
@@ -64,11 +64,8 @@ struct HalfEdgeFace
   }
   
   ~HalfEdgeFace()
-  {
-    delete[] face_head_edge;
-  }
+  {}
 
-  
   void add_next_edge(HalfEdge* & edge)
   { curr_head = edge; curr_head->nextEdge = face_tail_edge; }
   
@@ -79,13 +76,16 @@ struct HalfEdgeFace
   { curr_head->twinEdge = edge; }
 
   void add_vertex(Vertex* & vertex)
-  { get_edges().back()->vertex = vertex; }
+  { curr_head->vertex = vertex; }
  
+  HalfEdge* get_head_edge()
+  { return curr_head; }
+  
   HalfEdge* get_next_edge()
-  { return get_edges().back()->nextEdge; }
+  { return curr_head->nextEdge; }
 
   HalfEdge* get_prev_edge()
-  { return get_edges().back()->prevEdge; }
+  { return curr_head->prevEdge; }
 
   std::vector<HalfEdge*> get_edges()
   {
