@@ -1,5 +1,6 @@
 #include <iostream>
 #include <vector>
+#include <deque>
 #include <unordered_set>
 #include <atomic>
 #include <thread>
@@ -39,21 +40,28 @@ struct HalfEdge {
     // Add more fields as needed
 };
 
+
+struct HalfEdgeFace 
+{
+  std::deque<HalfEdge*> edges;
+};
+
+
 // Hazard pointer structure
+template<typename T>
 struct HazardPointer {
-    std::atomic<HalfEdge*> ptr;
+    std::atomic<T*> ptr;
     std::atomic_flag locked = ATOMIC_FLAG_INIT;
 };
 
 class HalfEdgeAllocator {
 private:
-    std::vector<HalfEdge> memoryPool;
+    std::deque<std::vector<HalfEdge>> memoryPool;
     std::vector<int> freeIndices;
-    int nextFreeIndex;
-    HazardPointer* hazardPointers;
+    HazardPointer<HalfEdge>* hazardPointers;
 
 public:
-    HalfEdgeAllocator() : memoryPool(MAX_HALF_EDGES), nextFreeIndex(0) {
+    HalfEdgeAllocator() {
         // Initialize freeIndices with all indices
         freeIndices.reserve(MAX_HALF_EDGES);
         for (int i = 0; i < MAX_HALF_EDGES; ++i) {
@@ -61,7 +69,7 @@ public:
         }
 
         // Initialize hazard pointers
-        hazardPointers = new HazardPointer[std::thread::hardware_concurrency()];
+        hazardPointers = new HazardPointer<HalfEdge>[std::thread::hardware_concurrency()];
         for (size_t i = 0; i < std::thread::hardware_concurrency(); ++i) {
             hazardPointers[i].ptr.store(nullptr);
         }
@@ -73,47 +81,60 @@ public:
 
     // Allocate a new half-edge from the memory pool
     HalfEdge* allocate() {
-        if (freeIndices.empty()) {
-            std::cerr << "Memory pool exhausted!" << std::endl;
-            return nullptr; // Or handle error differently
+        // Get a hazard pointer
+        HazardPointer<HalfEdge>& hp = getHazardPointer();
+
+        HalfEdge* hazardPtr = nullptr;
+        while (true) {
+            HalfEdge* ptr = nullptr;
+            if (!hp.locked.test_and_set()) {
+                ptr = hp.ptr.load();
+                hp.locked.clear();
+            }
+
+            if (ptr) {
+                // We have a hazard pointer, check if it's safe to use
+                if (isValidPointer(ptr)) {
+                    return ptr;
+                }
+            } else {
+                if (freeIndices.empty()) {
+                    // If memory pool is exhausted, allocate a new vector
+                    memoryPool.emplace_back(MAX_HALF_EDGES);
+                    for (int i = 0; i < MAX_HALF_EDGES; ++i) {
+                        freeIndices.push_back(i + (memoryPool.size() - 1) * MAX_HALF_EDGES);
+                    }
+                }
+                int index = freeIndices.back();
+                freeIndices.pop_back();
+                int vectorIndex = index / MAX_HALF_EDGES;
+                int elementIndex = index % MAX_HALF_EDGES;
+                ptr = &memoryPool[vectorIndex][elementIndex];
+
+                // Set hazard pointer
+                hp.ptr.store(ptr);
+                hp.locked.clear();
+
+                return ptr;
+            }
         }
-        int index = freeIndices.back();
-        freeIndices.pop_back();
-        return &memoryPool[index];
     }
 
     // Deallocate a previously allocated half-edge
     void deallocate(HalfEdge* edge) {
-        if (!edge) return;
-        int index = edge - &memoryPool[0];
-        if (index < 0 || index >= MAX_HALF_EDGES) {
-            std::cerr << "Invalid index for deallocation!" << std::endl;
-            return;
-        }
-        freeIndices.push_back(index);
+        // No need to deallocate in hazard pointer model
     }
 
-    // Accessor to get a reference to a half-edge by index
-    HalfEdge& getHalfEdge(int index) {
-        return memoryPool[index];
+    // Check if a pointer is valid
+    bool isValidPointer(HalfEdge* ptr) {
+        // Add your validation logic here
+        return true;
     }
 
     // Get a hazard pointer
-    HazardPointer& getHazardPointer() {
+    HazardPointer<HalfEdge>& getHazardPointer() {
         return hazardPointers[std::hash<std::thread::id>{}(std::this_thread::get_id()) % std::thread::hardware_concurrency()];
     }
 };
 
-class HalfEdgeMesh {
-private:
-    std::unordered_set<Vertex, Vertex::Hash, Vertex::Equal> vertexPool;
 
-public:
-    // Method to add a vertex to the mesh
-        Vertex* addVertex(double x, double y, double z) {
-        auto v = vertexPool.emplace(Vertex{x, y, z}).first;
-        return const_cast<Vertex*>(&(*v));// Required as emplace returns a const iterator
-    }
-
-    // Add methods to manipulate the half-edge mesh as needed
-};
