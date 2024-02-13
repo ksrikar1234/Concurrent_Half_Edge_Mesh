@@ -119,6 +119,7 @@ struct HalfEdgeFace
 // Hazard pointer structure
 template<typename T>
 struct HazardPointer {
+    // Dont use atomic for pointer as it destroys the purpose of hazard pointers
     std::atomic<T*> ptr;
     std::atomic_flag write_lock = ATOMIC_FLAG_INIT;
 };
